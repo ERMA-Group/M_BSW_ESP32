@@ -8,6 +8,7 @@
 #include "hal/gpio_types.h"
 #include "driver/ledc.h"
 
+namespace bsw {
 /* ---------------- Constant Definitions ---------------- */
 const uint16_t GpioController::pwm_lookup_table[kPwmLookupTableSize] = {
     0, 10, 20, 30, 40, 51, 61, 71, 81, 91, 102, 112, 122, 132, 143, 153, 163, 173, 184, 194,
@@ -100,3 +101,5 @@ void GpioController::stopPwm(uint8_t channel)
 {
     ledc_stop(LEDC_HIGH_SPEED_MODE, static_cast<ledc_channel_t>(channel), 0);
 }
+
+} // namespace bsw

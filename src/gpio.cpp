@@ -5,6 +5,8 @@
 
 #include "gpio.hpp"   // C++ class definition
 
+namespace bsw {
+
 /* ---------------- C++ class ---------------- */
 Gpio::Gpio(GpioController& gpio_controller, uint8_t gpio_id, GpioDirection direction, GpioPullMode pull_mode, GpioState initial_state)
     : gpio_controller(gpio_controller),
@@ -84,3 +86,5 @@ uint8_t Gpio::getPwmDutyCycle() const
 {
     return pwm_duty_cycle;
 }
+
+} // namespace bsw

@@ -9,6 +9,8 @@
 #pragma once
 #include <cstdint>
 
+namespace bsw {
+
 enum class GpioDirection { kInput = 0, kOutput = 1 };
 enum class GpioPullMode { kNone = 0, kPullUp = 1, kPullDown = 2, kPullUpDown = 3 };
 enum class GpioState { kLow = 0, kHigh = 1 };
@@ -36,3 +38,5 @@ private:
     uint16_t getPwmDutyCycleLookup(uint8_t duty_cycle) const;
     static const uint16_t pwm_lookup_table[kPwmLookupTableSize];
 };
+
+} // namespace bsw

@@ -10,6 +10,8 @@
 #include <cstdint>
 #include "gpioController.hpp"
 
+namespace bsw {
+
 class Gpio {
 public:
     Gpio(GpioController& gpio_controller, uint8_t gpio_id, GpioDirection direction, GpioPullMode pull_mode, GpioState initial_state);
@@ -40,3 +42,5 @@ private:
     uint32_t pwm_frequency;
     uint8_t pwm_duty_cycle;
 };
+
+} // namespace bsw
