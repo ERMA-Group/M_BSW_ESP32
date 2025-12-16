@@ -1,5 +1,5 @@
 /**
- * @file gpioController.hpp
+ * @file gpio_controller.hpp
  * @brief C++ class definition for embedded module.
  *
  * This header defines the internal C++ class used by the module.

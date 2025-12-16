@@ -1,9 +1,9 @@
 /**
- * @file gpioController.cpp
+ * @file gpio_controller.cpp
  * @brief C++ class implementation
  */
 
-#include "gpioController.hpp"   // C++ class definition
+#include "gpio_controller.hpp"   // C++ class definition
 #include "driver/gpio.h"
 #include "hal/gpio_types.h"
 #include "driver/ledc.h"

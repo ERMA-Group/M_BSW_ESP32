@@ -8,7 +8,7 @@
 
 #pragma once
 #include <cstdint>
-#include "gpioController.hpp"
+#include "gpio_controller.hpp"
 
 namespace bsw {
 
