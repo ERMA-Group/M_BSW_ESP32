@@ -12,12 +12,13 @@
 #include "core_task.hpp"
 #include "scheduler_task.hpp"
 #include <vector>
+#include "watchdog.hpp"
 
 namespace bsw {
 
 class Scheduler {
 public:
-    Scheduler(uint32_t period_us);
+    Scheduler(const uint32_t period_us, const uint32_t watchdog_timeout_ms = 100);
     ~Scheduler() = default;
 
     uint16_t init_timer();
@@ -32,12 +33,12 @@ public:
 private:
     static void tick_callback_wrapper(void* arg);
 
-    void tick_callback();
     uint32_t current_tick;
     uint32_t period_us;
     esp_timer_handle_t timer_handle;
     CoreTask scheduler_task;
     std::vector<bsw::SchedulerTask> scheduler_tasks;
+    Watchdog watchdog;
 };
 
 } // namespace bsw

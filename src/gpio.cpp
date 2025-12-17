@@ -4,87 +4,120 @@
  */
 
 #include "gpio.hpp"   // C++ class definition
-
+#include <cstdint>
+#include "esp_timer.h"
 namespace bsw {
 
 /* ---------------- C++ class ---------------- */
-Gpio::Gpio(GpioController& gpio_controller, uint8_t gpio_id, GpioDirection direction, GpioPullMode pull_mode, GpioState initial_state)
-    : gpio_controller(gpio_controller),
-      gpio_id(gpio_id),
-      direction(direction),
-      pull_mode(pull_mode),
-      state(initial_state),
-      mode(GpioMode::kDigital),
-      pwm_channel(0),
-      pwm_timer(0),
-      pwm_frequency(0),
-      pwm_duty_cycle(0)
+Gpio::Gpio(GpioController& in_gpio_controller, const uint8_t in_gpio_id, const GpioDirection in_direction, const GpioPullMode in_pull_mode, const GpioState in_initial_state) noexcept
+    : _gpio_controller(in_gpio_controller),
+      _gpio_id(in_gpio_id),
+      _direction(in_direction),
+      _pull_mode(in_pull_mode),
+      _state(in_initial_state),
+      _mode(GpioMode::kDigital),
+      _pwm_channel(0),
+      _pwm_timer(0),
+      _pwm_frequency(0),
+      _pwm_duty_cycle(0)
 {
     // Initialize GPIO with specified parameters
 }
 
-void Gpio::initPwm(uint8_t gpio_id, uint32_t frequency, uint8_t duty_cycle, uint8_t channel, uint8_t timer)
+void Gpio::init() noexcept
 {
-    gpio_controller.initPwm(gpio_id, frequency, duty_cycle, channel, timer);
-    mode = GpioMode::kPwm;
-    pwm_channel = channel;
-    pwm_timer = timer;
-    pwm_frequency = frequency;
-    pwm_duty_cycle = duty_cycle;
+    _gpio_controller.setDirection(_gpio_id, _direction);
+    _gpio_controller.setPullMode(_gpio_id, _pull_mode);
+    _gpio_controller.setGpioState(_gpio_id, _state);
 }
 
-void Gpio::setDirection(uint8_t gpio_id, GpioDirection direction)
+void Gpio::initPwm(const uint32_t frequency, const uint8_t duty_cycle, const uint8_t channel, const uint8_t timer) noexcept
 {
-    gpio_controller.setDirection(gpio_id, direction);
+    _gpio_controller.initPwm(_gpio_id, frequency, duty_cycle, channel, timer);
+    _mode = GpioMode::kPwm;
+    _pwm_channel = channel;
+    _pwm_timer = timer;
+    _pwm_frequency = frequency;
+    _pwm_duty_cycle = duty_cycle;
 }
 
-void Gpio::setPullMode(uint8_t gpio_id, GpioPullMode pull_mode)
+void Gpio::setGpioId(const uint8_t gpio_id) noexcept
 {
-    gpio_controller.setPullMode(gpio_id, pull_mode);
-}
-void Gpio::setGpioState(uint8_t gpio_id, GpioState state)
-{
-    gpio_controller.setGpioState(gpio_id, state);
+    this->_gpio_id = gpio_id;
 }
 
-void Gpio::setPwmDuty(uint8_t gpio_id, uint8_t duty_cycle)
+void Gpio::setDirection(const GpioDirection direction) noexcept
+{
+    _direction = direction;
+    _gpio_controller.setDirection(_gpio_id, direction);
+}
+
+void Gpio::setPullMode(const GpioPullMode pull_mode) noexcept
+{
+    _pull_mode = pull_mode;
+    _gpio_controller.setPullMode(_gpio_id, pull_mode);
+}
+void Gpio::setState(const GpioState state) noexcept
+{
+    _state = state;
+    _gpio_controller.setGpioState(_gpio_id, state);
+}
+
+void Gpio::toggleGpioState() noexcept
+{
+    GpioState current_state = getState();
+    GpioState new_state = (current_state == GpioState::kHigh) ? GpioState::kLow : GpioState::kHigh;
+    setState(new_state);
+}
+
+void Gpio::setPwmDuty(const uint8_t duty_cycle) noexcept
 {
     // Set PWM duty cycle
 }
 
-void Gpio::setPwmFreq(uint8_t gpio_id, uint32_t frequency)
+void Gpio::setPwmFreq(const uint32_t frequency) noexcept
 {
     // Set PWM frequency
 }
 
-GpioState Gpio::getState(uint8_t gpio_id) const
+uint8_t Gpio::getGpioId() const noexcept
 {
-    return gpio_controller.getState(gpio_id);
+    return _gpio_id;
 }
 
-GpioMode Gpio::getMode() const
+GpioState Gpio::getState() noexcept
 {
-    return mode;
+    if (_direction == GpioDirection::kInput)
+    {
+        /* Read the current state from the GPIO controller */
+        _state = _gpio_controller.getState(_gpio_id);
+    }
+    return _state;
 }
 
-uint8_t Gpio::getPwmChannel() const
+GpioMode Gpio::getMode() const noexcept
 {
-    return pwm_channel;
+    return _mode;
 }
 
-uint8_t Gpio::getPwmTimer() const
+uint8_t Gpio::getPwmChannel() const noexcept
 {
-    return pwm_timer;
+    return _pwm_channel;
 }
 
-uint32_t Gpio::getPwmFrequency() const
+uint8_t Gpio::getPwmTimer() const noexcept
 {
-    return pwm_frequency;
+    return _pwm_timer;
 }
 
-uint8_t Gpio::getPwmDutyCycle() const
+uint32_t Gpio::getPwmFrequency() const noexcept
 {
-    return pwm_duty_cycle;
+    return _pwm_frequency;
+}
+
+uint8_t Gpio::getPwmDutyCycle() const noexcept
+{
+    return _pwm_duty_cycle;
 }
 
 } // namespace bsw

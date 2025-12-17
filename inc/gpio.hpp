@@ -14,33 +14,38 @@ namespace bsw {
 
 class Gpio {
 public:
-    Gpio(GpioController& gpio_controller, uint8_t gpio_id, GpioDirection direction, GpioPullMode pull_mode, GpioState initial_state);
+    Gpio(GpioController& gpio_controller, const uint8_t gpio_id, const GpioDirection direction, const GpioPullMode pull_mode, const GpioState initial_state) noexcept;
     ~Gpio() = default;
 
-    void initPwm(uint8_t gpio_id, uint32_t frequency, uint8_t duty_cycle, uint8_t channel, uint8_t timer);
-    void setDirection(uint8_t gpio_id, GpioDirection direction);
-    void setPullMode(uint8_t gpio_id, GpioPullMode pull_mode);
-    void setGpioState(uint8_t gpio_id, GpioState state);
+    void init() noexcept;
 
-    void setPwmDuty(uint8_t gpio_id, uint8_t duty_cycle);
-    void setPwmFreq(uint8_t gpio_id, uint32_t frequency);
-    GpioState getState(uint8_t gpio_id) const;
-    GpioMode getMode() const;
-    uint8_t getPwmChannel() const;
-    uint8_t getPwmTimer() const;
-    uint32_t getPwmFrequency() const;
-    uint8_t getPwmDutyCycle() const;
+    void initPwm(const uint32_t frequency, const uint8_t duty_cycle, const uint8_t channel, const uint8_t timer) noexcept;
+    void setDirection(const GpioDirection direction) noexcept;
+    void setPullMode(const GpioPullMode pull_mode) noexcept;
+    void setState(const GpioState state) noexcept;
+    void toggleGpioState() noexcept;
+
+    void setGpioId(const uint8_t gpio_id) noexcept;
+    void setPwmDuty(const uint8_t duty_cycle) noexcept;
+    void setPwmFreq(const uint32_t frequency) noexcept;
+    uint8_t getGpioId() const noexcept;
+    GpioState getState() noexcept;
+    GpioMode getMode() const noexcept;
+    uint8_t getPwmChannel() const noexcept;
+    uint8_t getPwmTimer() const noexcept;
+    uint32_t getPwmFrequency() const noexcept;
+    uint8_t getPwmDutyCycle() const noexcept;
 private:
-    GpioController& gpio_controller;
-    uint8_t gpio_id;
-    GpioDirection direction;
-    GpioPullMode pull_mode;
-    GpioState state;
-    GpioMode mode;
-    uint8_t pwm_channel;
-    uint8_t pwm_timer;
-    uint32_t pwm_frequency;
-    uint8_t pwm_duty_cycle;
+    GpioController& _gpio_controller;
+    uint8_t _gpio_id;
+    GpioDirection _direction;
+    GpioPullMode _pull_mode;
+    GpioState _state;
+    GpioMode _mode;
+    uint8_t _pwm_channel;
+    uint8_t _pwm_timer;
+    uint32_t _pwm_frequency;
+    uint8_t _pwm_duty_cycle;
 };
 
 } // namespace bsw

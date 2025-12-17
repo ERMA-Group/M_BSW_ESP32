@@ -13,26 +13,37 @@
 namespace bsw {
 
 class SchedulerTask {
+    using TaskFunc = void (*)(void*); // Typedef for clarity
+
 public:
-    SchedulerTask(void (*task_function)(void*), uint8_t priority, uint16_t run_every_scheduler_ticks);
+    SchedulerTask() noexcept = default;
+    SchedulerTask(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks);
     ~SchedulerTask() = default;
+
+    void construct(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks);
 
     void execute();
 
-    uint16_t getSchedulerTicks() const;
-    uint32_t getLastSchedulerTick() const;
-    uint8_t getPriority() const;
-    uint32_t getTickWhenToRun() const;
+    uint16_t getSchedulerTicks() const noexcept;
+    uint32_t getLastSchedulerTick() const noexcept;
+    uint8_t getPriority() const noexcept;
+    uint32_t getTickWhenToRun() const noexcept;
 
-    void setLastSchedulerTick(uint32_t tick);
-    void setPriority(uint8_t prio);
-    void setSchedulerTicks(uint16_t ticks);
+    void setTaskFunction(TaskFunc func) noexcept;
+    void setLastSchedulerTick(uint32_t tick) noexcept;
+    void setPriority(uint8_t prio) noexcept;
+    void setSchedulerTicks(uint16_t ticks) noexcept;
+
+    bool operator==(const SchedulerTask& other) const
+    {
+        return _task_function == other._task_function;
+    }
 
 private:
-    void (*task_function)(void*);
-    uint16_t scheduler_ticks; // How often the task should run in scheduler ticks
-    uint8_t priority; // Task priority
-    uint32_t last_scheduler_tick; // Last tick when the task was run
+    TaskFunc _task_function; // Function pointer for the task
+    uint16_t _scheduler_ticks; // How often the task should run in scheduler ticks
+    uint8_t _priority; // Task priority
+    uint32_t _last_scheduler_tick; // Last tick when the task was run
 };
 
 } // namespace bsw

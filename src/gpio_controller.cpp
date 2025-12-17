@@ -69,11 +69,12 @@ void GpioController::initPwm(uint8_t gpio_id, uint32_t frequency, uint8_t duty_c
     /* Initialize PWM timer if it hasn't been initialized yet */
 	if (pwm_timer_initialized == false)
 	{
-		ledc_timer_config_t ledc_timer = {0};
+		ledc_timer_config_t ledc_timer = {};
 		ledc_timer.speed_mode = LEDC_HIGH_SPEED_MODE;
 		ledc_timer.duty_resolution = LEDC_TIMER_10_BIT;
 		ledc_timer.timer_num = static_cast<ledc_timer_t>(timer);
 		ledc_timer.freq_hz = frequency;
+		ledc_timer.clk_cfg = LEDC_AUTO_CLK;
 		ESP_ERROR_CHECK( ledc_timer_config(&ledc_timer) );
 		pwm_timer_initialized = true;
 	}
@@ -82,7 +83,7 @@ void GpioController::initPwm(uint8_t gpio_id, uint32_t frequency, uint8_t duty_c
 GpioState GpioController::getState(uint8_t gpio_id) const
 {
     // Return current GPIO state
-    int level = gpio_get_level(static_cast<gpio_num_t>(gpio_id));
+    auto level {gpio_get_level(static_cast<gpio_num_t>(gpio_id))};
     return (level == 1) ? GpioState::kHigh : GpioState::kLow;
 }
 

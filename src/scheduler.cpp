@@ -8,19 +8,17 @@
 
 namespace bsw {
 /* ---------------- C++ class ---------------- */
-Scheduler::Scheduler(uint32_t period_us)
+Scheduler::Scheduler(const uint32_t in_period_us, const uint32_t watchdog_timeout_ms)
     : current_tick(0),
-      period_us(period_us),
+      period_us(in_period_us),
       scheduler_tasks()
 {
+    watchdog.setTimeout(watchdog_timeout_ms);
     init_timer();
 }
 
 uint16_t Scheduler::init_timer()
 {
-    // 1ms converted to microseconds (μs)
-    const uint64_t period_us = 1000; 
-
     // 1. Define the timer arguments
     esp_timer_create_args_t timer_args = {
         .callback = &Scheduler::tick_callback_wrapper, // Set the static wrapper
@@ -43,6 +41,7 @@ uint16_t Scheduler::init_timer()
 void Scheduler::tick_callback()
 {
     current_tick++;
+    watchdog.feed();
     // Iterate through all scheduled tasks
     for (auto& task : scheduler_tasks)
     {
