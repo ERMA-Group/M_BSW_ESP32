@@ -36,7 +36,7 @@ private:
     uint32_t current_tick;
     uint32_t period_us;
     esp_timer_handle_t timer_handle;
-    CoreTask scheduler_task;
+    CoreTask scheduler_core_task_;
     std::vector<bsw::SchedulerTask> scheduler_tasks;
     Watchdog watchdog;
 };

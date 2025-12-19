@@ -7,26 +7,28 @@
 
 namespace bsw {
 /* ---------------- C++ class ---------------- */
-SchedulerTask::SchedulerTask(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks) noexcept
+SchedulerTask::SchedulerTask(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks, void* arg) noexcept
     : _task_function(func),
       _scheduler_ticks(run_every_scheduler_ticks),
       _priority(priority),
-      _last_scheduler_tick(0)
+      _last_scheduler_tick(0),
+      _arg(arg)
 {}
 
-void SchedulerTask::construct(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks) noexcept
+void SchedulerTask::construct(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks, void* arg) noexcept
 {
     _task_function = func;
     _priority = priority;
     _scheduler_ticks = run_every_scheduler_ticks;
     _last_scheduler_tick = 0;
+    _arg = arg;
 }
 
 void SchedulerTask::execute() noexcept
 {
     if (_task_function != nullptr)
     {
-        _task_function(nullptr);
+        _task_function(_arg);
     }
     else
     {
