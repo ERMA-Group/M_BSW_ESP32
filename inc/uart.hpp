@@ -21,35 +21,35 @@ namespace bsw {
 
 class Uart {
 public:
-    enum class UartModule : uint8_t {
+    enum class Module : uint8_t {
         kUart0 = static_cast<uint8_t>(uart_port_t::UART_NUM_0),
         kUart1 = static_cast<uint8_t>(uart_port_t::UART_NUM_1),
         kUart2 = static_cast<uint8_t>(uart_port_t::UART_NUM_2),
     };
 
-    enum class UartDataBits : uint8_t {
+    enum class DataBits : uint8_t {
         kDataBits5 = static_cast<uint8_t>(uart_word_length_t::UART_DATA_5_BITS),
         kDataBits6 = static_cast<uint8_t>(uart_word_length_t::UART_DATA_6_BITS),
         kDataBits7 = static_cast<uint8_t>(uart_word_length_t::UART_DATA_7_BITS),
         kDataBits8 = static_cast<uint8_t>(uart_word_length_t::UART_DATA_8_BITS),
     };
 
-    enum class UartStopBits : uint8_t {
+    enum class StopBits : uint8_t {
         kStopBits1   = static_cast<uint8_t>(uart_stop_bits_t::UART_STOP_BITS_1),
         kStopBits1_5 = static_cast<uint8_t>(uart_stop_bits_t::UART_STOP_BITS_1_5),
         kStopBits2   = static_cast<uint8_t>(uart_stop_bits_t::UART_STOP_BITS_2),
     };
 
-    enum class UartParity : uint8_t {
+    enum class Parity : uint8_t {
         kParityDisable = static_cast<uint8_t>(uart_parity_t::UART_PARITY_DISABLE),
         kParityEven    = static_cast<uint8_t>(uart_parity_t::UART_PARITY_EVEN),
         kParityOdd     = static_cast<uint8_t>(uart_parity_t::UART_PARITY_ODD),
     };
     struct Config {
-        UartModule module;
-        UartDataBits data_bits;
-        UartStopBits stop_bits;
-        UartParity parity;
+        Module module;
+        DataBits data_bits;
+        StopBits stop_bits;
+        Parity parity;
         uint8_t tx_pin;
         uint8_t rx_pin;
         uint32_t baud_rate;
@@ -95,8 +95,11 @@ public:
      */
     uint16_t receive(uint8_t* buffer, size_t length) noexcept;
 
+    bool isInitialized() const noexcept { return initialized_; }
+
 private:
     Config config_;
+    bool initialized_ = false;
 };
 
 } // namespace bsw

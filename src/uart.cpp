@@ -25,19 +25,21 @@ bool Uart::init() noexcept
 
     auto port = static_cast<uart_port_t>(config_.module);
 
-    // 1. Configure parameters FIRST
+    /* Configure UART parameters */
     if (uart_param_config(port, &uart_config) != ESP_OK)
     {
+        initialized_ = false;
         return false;
     }
 
-    // 2. Install driver
+    /* Install UART driver */
     if (uart_driver_install(port, config_.rx_buf_size * 2, 0, 0, nullptr, 0) != ESP_OK)
     {
+        initialized_ = false;
         return false;
     }
 
-    // 3. Set pins
+    /* Set UART pins */
     esp_err_t pin_err;
     if (config_.rx_pin == 3 || config_.rx_pin == 1)
     {
@@ -49,7 +51,7 @@ bool Uart::init() noexcept
         pin_err = uart_set_pin(port, config_.tx_pin, config_.rx_pin, 
                                UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     }
-
+    initialized_ = (pin_err == ESP_OK);
     return (pin_err == ESP_OK);
 }
 
