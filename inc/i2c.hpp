@@ -67,8 +67,8 @@ public:
 private:
     bool initialized_ = false;
     Config config_;
-    i2c_master_bus_handle_t _bus_handle;
-    i2c_master_dev_handle_t _dev_handle;
+    i2c_master_bus_handle_t bus_handle_;
+    i2c_master_dev_handle_t dev_handle_;
 };
 
 } // namespace bsw

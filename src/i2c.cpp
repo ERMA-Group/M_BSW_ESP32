@@ -20,7 +20,7 @@ bool I2c::init() noexcept
     bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
     bus_cfg.glitch_ignore_cnt = 7; 
 
-    if (i2c_new_master_bus(&bus_cfg, &_bus_handle) != ESP_OK) 
+    if (i2c_new_master_bus(&bus_cfg, &bus_handle_) != ESP_OK) 
     {
         return false;
     }
@@ -31,7 +31,7 @@ bool I2c::init() noexcept
     dev_cfg.scl_speed_hz = config_.clk_speed;
     dev_cfg.scl_wait_us = 0; // use default
     dev_cfg.flags.disable_ack_check = config_.ack_check_disable; // Disable ACK check. If this is set false, that means ack check is enabled, the transaction will be stopped and API returns error when nack is detected
-    initialized_ = static_cast<bool>(i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle) == ESP_OK);
+    initialized_ = static_cast<bool>(i2c_master_bus_add_device(bus_handle_, &dev_cfg, &dev_handle_) == ESP_OK);
     return initialized_;
 }
 
@@ -39,14 +39,14 @@ int32_t I2c::write_byte(const uint8_t reg_addr, const uint8_t data) noexcept
 {
     uint8_t write_buf[2] = { reg_addr, data };
     // Synchronous write
-    return static_cast<int32_t>(i2c_master_transmit(_dev_handle, write_buf, sizeof(write_buf), -1));
+    return static_cast<int32_t>(i2c_master_transmit(dev_handle_, write_buf, sizeof(write_buf), -1));
 }
 
 int32_t I2c::read_bytes(const uint8_t reg_addr, uint8_t* buffer, const size_t length) noexcept
 {
     // Modern API handles the "Write Reg Addr -> Repeated Start -> Read Data" 
     // sequence in one efficient call
-    return static_cast<int32_t>(i2c_master_transmit_receive(_dev_handle, &reg_addr, 1, buffer, length, -1));
+    return static_cast<int32_t>(i2c_master_transmit_receive(dev_handle_, &reg_addr, 1, buffer, length, -1));
 }
 
 } // namespace bsw
