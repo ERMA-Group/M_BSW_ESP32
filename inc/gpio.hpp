@@ -15,6 +15,17 @@ namespace bsw {
 class Gpio {
 public:
     Gpio(GpioController& gpio_controller, const uint8_t gpio_id, const GpioDirection direction, const GpioPullMode pull_mode, const GpioState initial_state) noexcept;
+    Gpio(
+        GpioController& gpio_controller, 
+        const uint8_t gpio_id, 
+        const GpioDirection direction, 
+        const GpioPullMode pull_mode, 
+        const GpioState initial_state, 
+        const uint8_t pwm_channel, 
+        const uint8_t pwm_timer,
+        const uint32_t pwm_frequency, 
+        const uint8_t pwm_duty_cycle
+    ) noexcept;
     ~Gpio() = default;
 
     void init() noexcept;
@@ -26,7 +37,7 @@ public:
     void toggleGpioState() noexcept;
 
     void setGpioId(const uint8_t gpio_id) noexcept;
-    void setPwmDuty(const uint8_t duty_cycle) noexcept;
+    void setPwmDuty(const uint8_t duty_cycle, bool is_brightness=false, bool pwm_inverted=false) noexcept;
     void setPwmFreq(const uint32_t frequency) noexcept;
     uint8_t getGpioId() const noexcept;
     GpioState getState() noexcept;

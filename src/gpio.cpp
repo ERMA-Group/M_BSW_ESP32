@@ -23,6 +23,30 @@ Gpio::Gpio(GpioController& in_gpio_controller, const uint8_t in_gpio_id, const G
 {
     // Initialize GPIO with specified parameters
 }
+Gpio::Gpio(
+    GpioController& in_gpio_controller, 
+    const uint8_t in_gpio_id, 
+    const GpioDirection in_direction, 
+    const GpioPullMode in_pull_mode, 
+    const GpioState in_initial_state, 
+    const uint8_t in_pwm_channel, 
+    const uint8_t in_pwm_timer,
+    const uint32_t in_pwm_frequency, 
+    const uint8_t in_pwm_duty_cycle
+) noexcept
+    : _gpio_controller(in_gpio_controller),
+      _gpio_id(in_gpio_id),
+      _direction(in_direction),
+      _pull_mode(in_pull_mode),
+      _state(in_initial_state),
+      _mode(GpioMode::kPwm),
+      _pwm_channel(in_pwm_channel),
+      _pwm_timer(in_pwm_timer),
+      _pwm_frequency(in_pwm_frequency),
+      _pwm_duty_cycle(in_pwm_duty_cycle)
+{
+    // Initialize GPIO with specified parameters
+}
 
 void Gpio::init() noexcept
 {
@@ -70,14 +94,24 @@ void Gpio::toggleGpioState() noexcept
     setState(new_state);
 }
 
-void Gpio::setPwmDuty(const uint8_t duty_cycle) noexcept
+/**
+ * @brief Sets the PWM duty cycle for the GPIO.
+ * @param duty_cycle The desired duty cycle (0-100).
+ * @param is_brightness If true, interprets duty_cycle as brightness (inverted).
+ * @param pwm_inverted If true, inverts the duty cycle.
+ */
+void Gpio::setPwmDuty(const uint8_t duty_cycle, bool is_brightness, bool pwm_inverted) noexcept
 {
     // Set PWM duty cycle
+    _pwm_duty_cycle = duty_cycle;
+    _gpio_controller.setPwmDuty(_pwm_channel, duty_cycle, is_brightness, pwm_inverted);
 }
 
 void Gpio::setPwmFreq(const uint32_t frequency) noexcept
 {
     // Set PWM frequency
+    _pwm_frequency = frequency;
+    _gpio_controller.setPwmFreq(_pwm_channel, frequency);
 }
 
 uint8_t Gpio::getGpioId() const noexcept
