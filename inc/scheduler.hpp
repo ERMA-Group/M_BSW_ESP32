@@ -11,34 +11,42 @@
 #include "esp_timer.h"
 #include "core_task.hpp"
 #include "scheduler_task.hpp"
-#include <vector>
+#include <array>
 #include "watchdog.hpp"
 
 namespace bsw {
 
 class Scheduler {
 public:
-    Scheduler(const uint32_t period_us, const uint32_t watchdog_timeout_ms = 100);
-    ~Scheduler() = default;
+    static constexpr uint16_t kMaxTasks {32}; // default 1 ms tick
+    static constexpr uint16_t kSchedulerPeriodUs {1000}; // default 1 ms tick
 
-    uint16_t init_timer();
-    void tick_callback();
+    Scheduler() noexcept = default;
+    Scheduler(const uint32_t period_us, const uint32_t watchdog_timeout_ms = 100) noexcept;
+    ~Scheduler() noexcept = default;
 
-    bool add_task(const SchedulerTask& task);
-    bool remove_task(const SchedulerTask& task);
+    void setPeriod(uint32_t period_us) noexcept { period_us_ = period_us; }
+    void setWatchdogTimeout(uint32_t timeout_ms) noexcept { watchdog_.setTimeout(timeout_ms); }
 
-    void start();
-    void suspend();
-    void resume();
+    uint16_t init_timer() noexcept;
+    void tick_callback() noexcept;
+
+    bool add_task(const SchedulerTask& task) noexcept;
+    // bool remove_task(const SchedulerTask& task) noexcept;
+
+    void start() noexcept;
+    void suspend() noexcept;
+    void resume() noexcept;
 private:
-    static void tick_callback_wrapper(void* arg);
+    static void tick_callback_wrapper_(void* arg) noexcept;
 
-    uint32_t current_tick;
-    uint32_t period_us;
-    esp_timer_handle_t timer_handle;
+    uint32_t current_tick_{0};
+    uint32_t period_us_{kSchedulerPeriodUs}; // default 1 ms tick
+    esp_timer_handle_t timer_handle_;
     CoreTask scheduler_core_task_;
-    std::vector<bsw::SchedulerTask> scheduler_tasks;
-    Watchdog watchdog;
+    std::array<bsw::SchedulerTask, kMaxTasks> scheduler_tasks_;
+    uint8_t task_count_ {0};
+    Watchdog watchdog_;
 };
 
 } // namespace bsw

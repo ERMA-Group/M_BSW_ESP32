@@ -9,11 +9,11 @@
 namespace bsw {
 /* ---------------- C++ class ---------------- */
 Scheduler::Scheduler(const uint32_t in_period_us, const uint32_t watchdog_timeout_ms)
-    : current_tick(0),
-      period_us(in_period_us),
-      scheduler_tasks()
+    : current_tick_(0),
+      period_us_(in_period_us),
+      scheduler_tasks_()
 {
-    watchdog.setTimeout(watchdog_timeout_ms);
+    watchdog_.setTimeout(watchdog_timeout_ms);
     init_timer();
 }
 
@@ -21,14 +21,14 @@ uint16_t Scheduler::init_timer()
 {
     // 1. Define the timer arguments
     esp_timer_create_args_t timer_args = {
-        .callback = &Scheduler::tick_callback_wrapper, // Set the static wrapper
+        .callback = &Scheduler::tick_callback_wrapper_, // Set the static wrapper
         .arg = this,                                   // Pass the instance pointer (this)
         .dispatch_method = ESP_TIMER_TASK,             // Use the high-priority esp_timer task
         .name = "scheduler_timer"                      // A name for debugging
     };
 
     // 2. Create the timer
-    esp_err_t err = esp_timer_create(&timer_args, &timer_handle);
+    esp_err_t err = esp_timer_create(&timer_args, &timer_handle_);
     if (err != ESP_OK)
     {
         // failed to create timer
@@ -40,55 +40,62 @@ uint16_t Scheduler::init_timer()
 
 void Scheduler::tick_callback()
 {
-    current_tick++;
-    watchdog.feed();
+    current_tick_++;
+    watchdog_.feed();
     // Iterate through all scheduled tasks
-    for (auto& task : scheduler_tasks)
+    // ONLY iterate up to the number of tasks actually added
+    for (uint8_t i = 0; i < task_count_; ++i) 
     {
-        // Check if the task is due to run
-        if (current_tick >= task.getTickWhenToRun())
+        auto& task = scheduler_tasks_[i];
+
+        if (current_tick_ >= task.getTickWhenToRun())
         {
-            // Execute the task's function
             task.execute();
-            // Update the last run tick
-            task.setLastSchedulerTick(current_tick);
+            task.setLastSchedulerTick(current_tick_);
         }
     }
 }
 
 bool Scheduler::add_task(const SchedulerTask& task)
 {
-    scheduler_tasks.push_back(task);
+    if (task_count_ >= kMaxTasks)
+    {
+        return false; // Array is full
+    }
+
+    scheduler_tasks_[task_count_] = task;
+    task_count_++;
     return true;
 }
 
-bool Scheduler::remove_task(const SchedulerTask& task)
-{
-    auto it = std::find(scheduler_tasks.begin(), scheduler_tasks.end(), task);
-    if (it != scheduler_tasks.end()) {
-        scheduler_tasks.erase(it);
-        return true;
-    }
-    return false;
-}
+// template <uint8_t MAXTASKS>
+// bool Scheduler<MAXTASKS>::remove_task(const SchedulerTask& task)
+// {
+//     auto it = std::find(scheduler_tasks_.begin(), scheduler_tasks_.end(), task);
+//     if (it != scheduler_tasks_.end()) {
+//         scheduler_tasks_.erase(it);
+//         return true;
+//     }
+//     return false;
+// }
 
 void Scheduler::start()
 {
-    esp_timer_start_periodic(timer_handle, period_us);
+    esp_timer_start_periodic(timer_handle_, period_us_);
 }
 
 void Scheduler::suspend()
 {
-    esp_timer_stop(timer_handle);
+    esp_timer_stop(timer_handle_);
 }
 
 void Scheduler::resume()
 {
-    esp_timer_start_periodic(timer_handle, period_us);
+    esp_timer_start_periodic(timer_handle_, period_us_);
 }
 
 // Static wrapper to call the member function
-void Scheduler::tick_callback_wrapper(void* arg)
+void Scheduler::tick_callback_wrapper_(void* arg)
 {
     // Cast the void* back to the class instance pointer
     Scheduler* self = static_cast<Scheduler*>(arg);
