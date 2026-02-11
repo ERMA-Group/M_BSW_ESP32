@@ -31,6 +31,8 @@ public:
     uint16_t init_timer() noexcept;
     void tick_callback() noexcept;
 
+    void start_on_core(uint8_t core_id, uint8_t uniqueId, uint8_t priority=5) noexcept;
+
     bool add_task(const SchedulerTask& task) noexcept;
     // bool remove_task(const SchedulerTask& task) noexcept;
 
@@ -39,6 +41,12 @@ public:
     void resume() noexcept;
 private:
     static void tick_callback_wrapper_(void* arg) noexcept;
+
+    void run_loop(); // The actual while(1) loop
+    // Static bridge for FreeRTOS
+    static void task_func_wrapper(void* param) {
+        static_cast<Scheduler*>(param)->run_loop();
+    }
 
     uint32_t current_tick_{0};
     uint32_t period_us_{kSchedulerPeriodUs}; // default 1 ms tick
