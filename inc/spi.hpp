@@ -8,6 +8,7 @@
 
 #pragma once
 #include <cstdint>
+#include <cstring> // memcpy
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 
@@ -40,19 +41,29 @@ public:
         uint32_t clock_speed_hz;
         uint16_t queue_size; // Number of transactions that can be queued; 0 for default 
         uint8_t dma_chan; // 0 for no DMA
-        uint8_t command_bits; // 0-16
-        uint8_t address_bits; // 0-64
-        uint8_t dummy_bits;
+        // uint8_t command_bits; // 0-16
+        // uint8_t address_bits; // 0-64
+        // uint8_t dummy_bits;
     };
 
     Spi() noexcept = default;
     explicit Spi(const Config& config) noexcept;
     ~Spi() noexcept = default;
 
+    void configure(const Config& config) noexcept;
     bool init() noexcept;
+    bool isInitialized() const noexcept { return initialized_; }
 
-    int32_t transfer(const uint8_t* tx_data, uint8_t* rx_data, const uint16_t length) noexcept;
-    int32_t write_cmd(const uint8_t cmd) noexcept;
+    void transfer(const uint8_t reg, const uint8_t* tx_data, uint8_t* rx_data, const uint16_t len) noexcept;
+    void write_burst(const uint8_t reg, const uint8_t* data, const uint16_t len) noexcept;
+    void write_burst16(const uint16_t reg, const uint8_t* data, const uint16_t len) noexcept;
+    void read_burst(const uint8_t reg, uint8_t* buffer, const uint16_t len) noexcept;
+    void read_burst16(const uint16_t reg, uint8_t* buffer, const uint16_t len) noexcept;
+    uint8_t read_byte(const uint8_t reg) noexcept;
+    uint8_t read_byte16(const uint16_t reg) noexcept;
+    void write_byte(const uint8_t reg, const uint8_t data) noexcept;
+    void write_byte16(const uint16_t reg, const uint8_t data) noexcept;
+
 
 private:
     bool initialized_ = false;
