@@ -8,9 +8,9 @@
 namespace bsw {
 /* ---------------- C++ class ---------------- */
 CoreTask::CoreTask() : task_handle(nullptr) {}
-void CoreTask::create(void (*task_function)(void*), const char* name, uint16_t stack_size, void* parameters, uint8_t priority, uint8_t core)
+bool CoreTask::create(void (*task_function)(void*), const char* name, uint16_t stack_size, void* parameters, uint8_t priority, uint8_t core) noexcept
 {
-    xTaskCreatePinnedToCore(
+    const BaseType_t result = xTaskCreatePinnedToCore(
         task_function,
         name,
         stack_size,
@@ -19,6 +19,8 @@ void CoreTask::create(void (*task_function)(void*), const char* name, uint16_t s
         &task_handle,
         core
     );
+
+    return result == pdPASS;
 }
 
 } // namespace bsw

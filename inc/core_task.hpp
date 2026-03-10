@@ -21,7 +21,8 @@ public:
     CoreTask();
     ~CoreTask() = default;
 
-    void create(void (*task_function)(void*), const char* name, uint16_t stack_size, void* parameters, uint8_t priority, uint8_t core);
+    bool create(void (*task_function)(void*), const char* name, uint16_t stack_size, void* parameters, uint8_t priority, uint8_t core) noexcept;
+    TaskHandle_t getHandle() const noexcept { return task_handle; }
 private:
     TaskHandle_t task_handle;
 };

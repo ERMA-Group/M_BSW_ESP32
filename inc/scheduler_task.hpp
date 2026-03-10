@@ -17,12 +17,12 @@ class SchedulerTask {
 
 public:
     SchedulerTask() noexcept = default;
-    SchedulerTask(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks, void* arg = nullptr);
-    ~SchedulerTask() = default;
+    SchedulerTask(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks, void* arg = nullptr) noexcept;
+    ~SchedulerTask() noexcept = default;
 
-    void construct(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks, void* arg = nullptr);
+    void construct(const TaskFunc func, const uint8_t priority, const uint16_t run_every_scheduler_ticks, void* arg = nullptr) noexcept;
 
-    void execute();
+    void execute() noexcept;
 
     uint16_t getSchedulerTicks() const noexcept;
     uint32_t getLastSchedulerTick() const noexcept;
@@ -40,11 +40,11 @@ public:
     }
 
 private:
-    TaskFunc _task_function; // Function pointer for the task
-    uint16_t _scheduler_ticks; // How often the task should run in scheduler ticks
-    uint8_t _priority; // Task priority
-    uint32_t _last_scheduler_tick; // Last tick when the task was run
-    void* _arg; // Argument to pass to the task function
+    TaskFunc _task_function {nullptr}; // Function pointer for the task
+    uint16_t _scheduler_ticks {0}; // How often the task should run in scheduler ticks
+    uint8_t _priority {0}; // Task priority
+    uint32_t _last_scheduler_tick {0}; // Last tick when the task was run
+    void* _arg {nullptr}; // Argument to pass to the task function
 };
 
 } // namespace bsw
