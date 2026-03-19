@@ -19,8 +19,10 @@ idf_component_register(
     esp_timer 
     esp_wifi 
     esp_event 
+    esp_netif
     nvs_flash 
     app_update
+    esp_http_server
     esp_http_client
     #EMBED_TXTFILES "erma_pubkey.pem"
 )
