@@ -9,6 +9,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <functional>
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -22,20 +23,6 @@ extern "C" {
 
 namespace bsw {
 
-struct AdminCredentials {
-    std::string device_id;
-    std::string device_password;
-};
-
-using GetAdminCredentialsFn = bool (*)(void* context, AdminCredentials& out);
-using SetAdminCredentialsFn = bool (*)(void* context, const AdminCredentials& in);
-
-struct AdminCredentialsCallbacks {
-    void* context;
-    GetAdminCredentialsFn get;
-    SetAdminCredentialsFn set;
-};
-
 class Wifi {
 public:
     Wifi();
@@ -46,9 +33,10 @@ public:
     bool connect_from_nvram(uint8_t max_attempts = 3);
 
     bool has_wifi_credentials();
+    bool is_connected() const;
     void clear_wifi_credentials();
+    void set_pairing_pin_callback(const std::function<void(const std::string&)>& callback);
     void start_provisioning_portal_blocking();
-    void set_admin_credentials_callbacks(const AdminCredentialsCallbacks& callbacks);
     bool get_ap_password(std::string& out_password);
     bool reset_ap_password(std::string& out_password);
 
@@ -75,11 +63,9 @@ private:
     bool got_ip_;
     Config config_;
     std::string ap_ip_;
-    void* admin_credentials_context_;
-    GetAdminCredentialsFn get_admin_credentials_fn_;
-    SetAdminCredentialsFn set_admin_credentials_fn_;
     httpd_handle_t http_server_;
     bool portal_submitted_;
+    std::function<void(const std::string&)> pairing_pin_callback_;
 
     static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
     static esp_err_t root_get_handler(httpd_req_t* req);
