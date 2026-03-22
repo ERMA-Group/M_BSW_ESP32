@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <string>
 #include <functional>
+#include <atomic>
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -36,9 +37,12 @@ public:
     bool is_connected() const;
     void clear_wifi_credentials();
     void set_pairing_pin_callback(const std::function<void(const std::string&)>& callback);
+    void set_operating_mode_callback(const std::function<void(const std::string&)>& callback);
     void start_provisioning_portal_blocking();
     bool get_ap_password(std::string& out_password);
     bool reset_ap_password(std::string& out_password);
+    const std::string& get_ssid() const;
+    const std::string& get_password() const;
 
 private:
     struct Config {
@@ -58,14 +62,16 @@ private:
 
     static constexpr const char* kTag = "WIFI";
     static constexpr uint32_t kConnectTimeoutMs = 15000;
+    static constexpr uint32_t kPortalTimeoutMs = 600000;
 
     bool initialized_;
     bool got_ip_;
     Config config_;
     std::string ap_ip_;
     httpd_handle_t http_server_;
-    bool portal_submitted_;
+    std::atomic<bool> portal_submitted_;
     std::function<void(const std::string&)> pairing_pin_callback_;
+    std::function<void(const std::string&)> operating_mode_callback_;
 
     static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
     static esp_err_t root_get_handler(httpd_req_t* req);
