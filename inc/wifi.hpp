@@ -35,6 +35,8 @@ public:
 
     bool has_wifi_credentials();
     bool is_connected() const;
+    bool is_ap_active() const;
+    bool start_local_access_ap();
     void clear_wifi_credentials();
     void set_pairing_pin_callback(const std::function<void(const std::string&)>& callback);
     void set_operating_mode_callback(const std::function<void(const std::string&)>& callback);
