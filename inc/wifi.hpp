@@ -40,6 +40,7 @@ public:
     void clear_wifi_credentials();
     void set_pairing_pin_callback(const std::function<void(const std::string&)>& callback);
     void set_operating_mode_callback(const std::function<void(const std::string&)>& callback);
+    void set_provisioning_html_callback(const std::function<std::string(const std::string& current_ssid, const std::string& current_password)>& callback);
     void start_provisioning_portal_blocking();
     bool get_ap_password(std::string& out_password);
     bool reset_ap_password(std::string& out_password);
@@ -74,6 +75,7 @@ private:
     std::atomic<bool> portal_submitted_;
     std::function<void(const std::string&)> pairing_pin_callback_;
     std::function<void(const std::string&)> operating_mode_callback_;
+    std::function<std::string(const std::string&, const std::string&)> provisioning_html_cb_;
 
     static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
     static esp_err_t root_get_handler(httpd_req_t* req);
