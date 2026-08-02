@@ -68,7 +68,7 @@ private:
     static constexpr uint32_t kPortalTimeoutMs = 600000;
 
     bool initialized_;
-    bool got_ip_;
+    std::atomic<bool> got_ip_;
     Config config_;
     std::string ap_ip_;
     httpd_handle_t http_server_;

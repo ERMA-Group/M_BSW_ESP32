@@ -2,8 +2,63 @@
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
+#include <cstring>
+#include <atomic>
+
+// Reference your global OTA flag to pause background tasks
+std::atomic<bool> g_ota_in_progress;
 
 namespace bsw {
+
+namespace {
+
+struct OtaContext {
+    esp_ota_handle_t handle;
+    int bytes_written;
+    esp_err_t error;
+};
+
+esp_err_t ota_http_event_handler(esp_http_client_event_t* evt)
+{
+    auto* ctx = static_cast<OtaContext*>(evt->user_data);
+    if (ctx == nullptr) return ESP_OK;
+
+    switch (evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGE("OTA", "HTTP_EVENT_ERROR");
+            ctx->error = ESP_FAIL;
+            break;
+
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0) {
+                esp_err_t err = esp_ota_write(ctx->handle, evt->data, evt->data_len);
+                if (err != ESP_OK) {
+                    ESP_LOGE("OTA", "esp_ota_write failed: %s", esp_err_to_name(err));
+                    ctx->error = err;
+                    return err;
+                }
+                ctx->bytes_written += evt->data_len;
+                if (ctx->bytes_written % 100000 < 4096) {
+                    ESP_LOGW("OTA", "Downloaded: %d bytes", ctx->bytes_written);
+                }
+            }
+            break;
+
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGW("OTA", "HTTP download finished");
+            break;
+
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGW("OTA", "HTTP disconnected");
+            break;
+
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+} // namespace
 
 esp_err_t Ota::start_update(const char* url) {
     if (url == nullptr || url[0] == '\0') {
@@ -11,101 +66,104 @@ esp_err_t Ota::start_update(const char* url) {
         return ESP_ERR_INVALID_ARG;
     }
 
+    // 1. PAUSE BACKGROUND TASKS (Prevents WebServiceApi from triggering resets)
+    g_ota_in_progress = true;
+
     ESP_LOGW("OTA", "Starting Native HTTP OTA: %s", url);
+
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    if (update_partition == nullptr) {
+        ESP_LOGE("OTA", "No OTA partition available");
+        g_ota_in_progress = false;
+        return ESP_FAIL;
+    }
+
+    // 2. ERASE FLASH *BEFORE* OPENING THE HTTP CONNECTION
+    // This uses 1027472 bytes (from your curl check) or full partition size.
+    // By erasing BEFORE opening HTTP, OpenResty's 10s timer won't run during erase!
+    esp_ota_handle_t update_handle = 0;
+    esp_err_t err = esp_ota_begin(update_partition, 1027472, &update_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE("OTA", "esp_ota_begin failed: %s", esp_err_to_name(err));
+        g_ota_in_progress = false;
+        return err;
+    }
+
+    OtaContext ctx = {};
+    ctx.handle = update_handle;
+    ctx.bytes_written = 0;
+    ctx.error = ESP_OK;
 
     esp_http_client_config_t config = {};
     config.url = url;
     config.timeout_ms = 30000;
+    config.event_handler = ota_http_event_handler;
+    config.user_data = &ctx;
+    config.buffer_size = 4096;
+    config.buffer_size_tx = 1024;
+    
+    // Enable TCP Keep-Alive to satisfy OpenResty
+    config.keep_alive_enable = true;
+    config.keep_alive_idle = 5;
+    config.keep_alive_interval = 2;
+    config.keep_alive_count = 3;
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (client == NULL) {
-        return ESP_FAIL;
-    }
-
-    esp_err_t err = esp_http_client_open(client, 0);
-    if (err != ESP_OK) {
-        esp_http_client_cleanup(client);
-        return err;
-    }
-
-    int content_length = esp_http_client_fetch_headers(client);
-    if (content_length <= 0) {
-        ESP_LOGE("OTA", "Failed to get content length");
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
-    }
-
-    // Prepare for the flash write
-    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
-    if (update_partition == nullptr) {
-        ESP_LOGE("OTA", "No OTA partition available");
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
-    }
-
-    esp_ota_handle_t update_handle = 0;
-    err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE("OTA", "esp_ota_begin failed: %s", esp_err_to_name(err));
-        esp_http_client_cleanup(client);
-        return err;
-    }
-
-    char *upgrade_data_buf = (char *)malloc(1024);
-    if (upgrade_data_buf == nullptr) {
-        ESP_LOGE("OTA", "Failed to allocate OTA buffer");
+        ESP_LOGE("OTA", "Failed to init HTTP client");
         esp_ota_abort(update_handle);
-        esp_http_client_cleanup(client);
-        return ESP_ERR_NO_MEM;
+        g_ota_in_progress = false;
+        return ESP_FAIL;
     }
 
-    int binary_size = 0;
-    while (1) {
-        int data_read = esp_http_client_read(client, upgrade_data_buf, 1024);
-        if (data_read == 0) break; // Finished
-        if (data_read < 0) {
-            ESP_LOGE("OTA", "Error: SSL/HTTP connection closed");
-            err = ESP_FAIL;
-            break;
-        }
+    // Matching headers specifically for OpenResty
+    esp_http_client_set_header(client, "User-Agent", "Mozilla/5.0 (ESP32) OTA Client");
+    esp_http_client_set_header(client, "Accept", "*/*");
+    esp_http_client_set_header(client, "Connection", "keep-alive");
+    esp_http_client_set_header(client, "Host", "fwarchive.erma.sk");
 
-        err = esp_ota_write(update_handle, upgrade_data_buf, data_read);
-        if (err != ESP_OK) {
-            ESP_LOGE("OTA", "esp_ota_write failed: %s", esp_err_to_name(err));
-            break;
-        }
+    // 3. START HTTP TRANSFER
+    err = esp_http_client_perform(client);
 
-        binary_size += data_read;
-        ESP_LOGI("OTA", "Written: %d bytes", binary_size);
-    }
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
 
-    if (err != ESP_OK || binary_size <= 0) {
-        ESP_LOGE("OTA", "OTA transfer failed, aborting update");
+    if (err != ESP_OK || ctx.error != ESP_OK) {
+        ESP_LOGE("OTA", "HTTP transfer failed: %s (Status: %d)", esp_err_to_name(err != ESP_OK ? err : ctx.error), status);
         esp_ota_abort(update_handle);
-        free(upgrade_data_buf);
-        esp_http_client_cleanup(client);
-        return (err == ESP_OK) ? ESP_FAIL : err;
+        g_ota_in_progress = false;
+        return (err != ESP_OK) ? err : ctx.error;
+    }
+
+    if (status != 200) {
+        ESP_LOGE("OTA", "HTTP status %d", status);
+        esp_ota_abort(update_handle);
+        g_ota_in_progress = false;
+        return ESP_FAIL;
+    }
+
+    if (ctx.bytes_written <= 0) {
+        ESP_LOGE("OTA", "No data received");
+        esp_ota_abort(update_handle);
+        g_ota_in_progress = false;
+        return ESP_FAIL;
     }
 
     err = esp_ota_end(update_handle);
     if (err != ESP_OK) {
         ESP_LOGE("OTA", "esp_ota_end failed: %s", esp_err_to_name(err));
-        free(upgrade_data_buf);
-        esp_http_client_cleanup(client);
+        g_ota_in_progress = false;
         return err;
     }
 
     err = esp_ota_set_boot_partition(update_partition);
     if (err != ESP_OK) {
         ESP_LOGE("OTA", "esp_ota_set_boot_partition failed: %s", esp_err_to_name(err));
-        free(upgrade_data_buf);
-        esp_http_client_cleanup(client);
+        g_ota_in_progress = false;
         return err;
     }
-    
-    ESP_LOGI("OTA", "Success! Total: %d bytes. Rebooting...", binary_size);
-    free(upgrade_data_buf);
-    esp_http_client_cleanup(client);
+
+    ESP_LOGW("OTA", "Success! Total: %d bytes. Rebooting...", ctx.bytes_written);
     esp_restart();
     return ESP_OK;
 }

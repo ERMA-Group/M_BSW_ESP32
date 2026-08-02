@@ -52,7 +52,7 @@ EventGroupHandle_t Wifi::s_wifi_event_group;
 
 Wifi::Wifi()
     : initialized_(false),
-      got_ip_(false),
+            got_ip_(false),
       config_{},
     ap_ip_("192.168.4.1"),
       http_server_(nullptr),
@@ -115,7 +115,7 @@ void Wifi::event_handler(void* arg, esp_event_base_t event_base, int32_t event_i
         self->got_ip_ = false;
         xEventGroupClearBits(s_wifi_event_group, CONNECTED_BIT);
         xEventGroupSetBits(s_wifi_event_group, FAIL_BIT);
-        esp_wifi_connect();
+        // Reconnection is handled by the application's background task
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
@@ -248,7 +248,28 @@ bool Wifi::has_wifi_credentials()
 
 bool Wifi::is_connected() const
 {
-    return got_ip_;
+    if (got_ip_.load())
+    {
+        return true;
+    }
+
+    // Fallback: verify actual STA link/IP so transient event ordering does not
+    // leave the device permanently thinking Wi-Fi is disconnected.
+    wifi_ap_record_t ap_info = {};
+    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK)
+    {
+        esp_netif_t* sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        if (sta_netif != nullptr)
+        {
+            esp_netif_ip_info_t ip_info = {};
+            if (esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK && ip_info.ip.addr != 0U)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool Wifi::is_ap_active() const
@@ -751,6 +772,7 @@ void Wifi::start_provisioning_portal_blocking()
     if (err != ESP_OK)
     {
         ESP_LOGE(kTag, "Failed to start HTTP server: %s", esp_err_to_name(err));
+        esp_wifi_stop();
         return;
     }
 
@@ -830,6 +852,7 @@ void Wifi::start_provisioning_portal_blocking()
         {
             ESP_LOGW(kTag, "Provisioning portal timeout after %lu ms", static_cast<unsigned long>(kPortalTimeoutMs));
             stop_http_server();
+            esp_wifi_stop();
             return;
         }
         vTaskDelay(pdMS_TO_TICKS(200));
