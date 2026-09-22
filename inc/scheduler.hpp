@@ -55,7 +55,7 @@ private:
 
     uint32_t current_tick_{0};
     uint32_t period_us_{kSchedulerPeriodUs}; // default 1 ms tick
-    esp_timer_handle_t timer_handle_;
+    esp_timer_handle_t timer_handle_{nullptr};
     CoreTask scheduler_core_task_;
     std::array<bsw::SchedulerTask, kMaxTasks> scheduler_tasks_;
     uint8_t task_count_ {0};
