@@ -9,7 +9,7 @@
 | **GpioController** | Pin management | Partial | gpio_controller.hpp/.cpp |
 | **Uart** | Serial communication | Yes | uart.hpp/.cpp |
 | **Spi** | SPI Master | Yes | spi.hpp/.cpp |
-| **I2c** | I2C Master/Slave | Yes | i2c.hpp/.cpp |
+| **I2c** | I2C master, one device per instance | No | i2c.hpp/.cpp |
 | **Scheduler** | Periodic tasks | Yes | scheduler.hpp/.cpp |
 | **SchedulerTask** | Task entry | N/A | scheduler_task.hpp/.cpp |
 | **Nvram** | Flash storage | Yes | nvram.hpp/.cpp |
@@ -73,6 +73,8 @@ void setState(GpioState state);               // kLow / kHigh
 GpioState getState();
 void toggleGpioState();
 </code>
+
+''init()'' applies the direction and pull mode, and writes the initial state only for outputs. GPIO34 to GPIO39 on the ESP32 are input-only and have no internal pull-up or pull-down: configure them as ''kInput'' with ''kNone'' and provide external resistors.
 
 **Gpio API - PWM:**
 <code cpp>
@@ -254,49 +256,50 @@ spi.transmit(&pattern, dummy_rx, 1, 100);
 | PCF8574 GPIO Exp | 0x20-0x27 | 100kHz | 8-bit I/O expander |
 | MPU6050 IMU | 0x68/0x69 | 400kHz | Accelerometer/gyro |
 
-**Configuration:**
+**Configuration:** one ''bsw::I2c'' instance is one master bus with one device on it (ESP-IDF ''i2c_master'' driver).
 <code cpp>
 struct Config {
-    Module module;          // kI2c0, kI2c1, kLpI2c0
+    Module module;           // kI2c0, kI2c1 (and kLpI2c0 where available)
     uint8_t sda_pin;
     uint8_t scl_pin;
-    AddrMode addr_mode;     // kAddr7Bit or kAddr10Bit
-    uint32_t clk_speed;     // 100k, 400k, or 1M Hz
-    bool pull_up_enabled;   // Internal pull-ups
-    BusMode bus_mode;       // kMaster or kSlave
+    uint16_t device_addr;    // 7- or 10-bit device address
+    AddrMode addr_mode;      // kAddr7Bit or kAddr10Bit
+    uint32_t clk_speed;      // SCL frequency in Hz, e.g. 400000
+    bool ack_check_disable;  // false: a NACK aborts the transfer with an error
 };
 </code>
 
+Internal pull-ups are not enabled; SDA and SCL need external pull-up resistors.
+
 **API:**
 <code cpp>
-void init();
-esp_err_t master_write(uint8_t addr, const uint8_t* data, size_t len);
-esp_err_t master_read(uint8_t addr, const uint8_t* reg, size_t reg_len,
-                      uint8_t* buf, size_t buf_len);
-bool probe(uint8_t addr);                       // Check device presence
-void setClockSpeed(uint32_t freq);
+bool init();                                                    // Creates the bus and adds the device; call once
+bool isInitialized() const;
+int32_t write_byte(uint8_t reg_addr, uint8_t data);             // [reg][data], waits without timeout
+int32_t read_bytes(uint8_t reg_addr, uint8_t* buf, size_t len); // write reg, repeated start, read len bytes
+int32_t write(const uint8_t* data, size_t len,
+              int32_t timeout_ms = kWriteTimeoutMs);            // raw write of len bytes, default 50 ms timeout
 </code>
 
-**Example - Temperature Sensor:**
+All transfer functions return an ''esp_err_t'' value (''ESP_OK'' on success). ''write()'' returns ''ESP_ERR_INVALID_STATE'' before ''init()'' and ''ESP_ERR_INVALID_ARG'' for an empty buffer. Use ''write()'' for devices that take a byte stream, such as displays, and for any device that may be absent: ''write_byte()'' and ''read_bytes()'' wait forever.
+
+**Example - SSD1309 OLED display (see M_Display_Oled_SSD1309):**
 <code cpp>
-bsw::I2c i2c{{.module = bsw::I2c::Module::kI2c0,
-               .sda_pin = 21, .scl_pin = 22,
-               .addr_mode = bsw::I2c::AddrMode::kAddr7Bit,
-               .clk_speed = 100000}};
-i2c.init();
+bsw::I2c display_bus{{.module = bsw::I2c::Module::kI2c0,
+                      .sda_pin = 21, .scl_pin = 22,
+                      .device_addr = 0x3C,
+                      .addr_mode = bsw::I2c::AddrMode::kAddr7Bit,
+                      .clk_speed = 400000,
+                      .ack_check_disable = false}};
+display_bus.init();
 
-uint8_t addr = 0x48;
-uint8_t reg = 0x00;
-uint8_t data[2];
-
-if (i2c.master_read(addr, &reg, 1, data, 2) == ESP_OK) {
-    int16_t raw = (data[0] << 8) | data[1];
-    float temp = raw * 0.0625f;
-    printf("Temperature: %.2f°C\n", temp);
+const uint8_t display_on[] = {0x00, 0xAF};  // control byte "commands", then DISPLAY ON
+if (display_bus.write(display_on, sizeof(display_on)) != ESP_OK) {
+    // NACK or timeout: display missing or not powered
 }
 </code>
 
-**Thread-Safety:** YES - Mutex-protected bus access.
+**Thread-Safety:** The class adds no locking. Use one instance from one task, or protect it with a mutex.
 
 ---
 
