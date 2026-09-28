@@ -42,6 +42,19 @@ int32_t I2c::write_byte(const uint8_t reg_addr, const uint8_t data) noexcept
     return static_cast<int32_t>(i2c_master_transmit(dev_handle_, write_buf, sizeof(write_buf), -1));
 }
 
+int32_t I2c::write(const uint8_t* data, const size_t length, const int32_t timeout_ms) noexcept
+{
+    if (!initialized_)
+    {
+        return static_cast<int32_t>(ESP_ERR_INVALID_STATE);
+    }
+    if ((data == nullptr) || (length == 0))
+    {
+        return static_cast<int32_t>(ESP_ERR_INVALID_ARG);
+    }
+    return static_cast<int32_t>(i2c_master_transmit(dev_handle_, data, length, timeout_ms));
+}
+
 int32_t I2c::read_bytes(const uint8_t reg_addr, uint8_t* buffer, const size_t length) noexcept
 {
     // Modern API handles the "Write Reg Addr -> Repeated Start -> Read Data" 
