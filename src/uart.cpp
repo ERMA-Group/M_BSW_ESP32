@@ -39,6 +39,13 @@ bool Uart::init() noexcept
         return false;
     }
 
+    /* Raise the receive interrupt earlier than the driver default, if configured */
+    if ((config_.rx_full_threshold != 0U) && (uart_set_rx_full_threshold(port, config_.rx_full_threshold) != ESP_OK))
+    {
+        initialized_ = false;
+        return false;
+    }
+
     /* Set UART pins */
     esp_err_t pin_err;
     if (config_.rx_pin == 3 || config_.rx_pin == 1)
