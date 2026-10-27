@@ -173,15 +173,10 @@ void Spi::read_burst(const uint8_t reg, uint8_t* buffer, const uint16_t len) noe
 {
     if (!isInitialized() || len == 0) return;
 
-    // To read, we send the address, then the slave clocks out data
-    uint8_t tx_addr = reg;
-    
-    spi_transaction_t t = {};
-    t.length = (len + 1) * 8;
-    t.tx_buffer = &tx_addr; 
-    t.rx_buffer = buffer;   // Data starts at buffer[1]
-
-    spi_device_transmit(device_handle_, &t);
+    // The address byte, then len dummy bytes that clock the data out; transfer() drops the byte read during
+    // the address. Before, the transaction sent len + 1 bytes from a 1-byte buffer and wrote the register
+    // data one byte past the start of buffer, so buffer[len] overflowed.
+    transfer(reg, nullptr, buffer, len);
 }
 
 // --- 16-BIT ADDRESS METHODS ---
