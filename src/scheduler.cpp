@@ -109,7 +109,9 @@ bool Scheduler::add_task(const SchedulerTask& task)
 
 bool Scheduler::start()
 {
-    if (is_started_ || timer_handle_ == nullptr)
+    // The tick timer is created here when the caller did not call init_timer(); before, start() returned
+    // false without it and an application that ignored the result ran no task at all
+    if (is_started_ || init_timer() != ESP_OK)
     {
         return false;
     }
