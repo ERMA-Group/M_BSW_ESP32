@@ -20,6 +20,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <new>
 #include <type_traits>
 
 #include "nvram.hpp"
@@ -118,13 +120,19 @@ public:
             return false;
         }
 
-        NvramTypedEntry<TPayload> entry {};
-        entry.header.magic = magic_;
-        entry.header.version = version_;
-        entry.header.payloadSize = static_cast<uint16_t>(sizeof(TPayload));
-        entry.payload = payload;
+        // On the heap: a full settings payload can be larger than the calling task's stack.
+        const std::unique_ptr<NvramTypedEntry<TPayload>> entry { new (std::nothrow) NvramTypedEntry<TPayload> {} };
+        if (!entry)
+        {
+            nvs.close();
+            return false;
+        }
+        entry->header.magic = magic_;
+        entry->header.version = version_;
+        entry->header.payloadSize = static_cast<uint16_t>(sizeof(TPayload));
+        entry->payload = payload;
 
-        const esp_err_t err = nvs.set_blob(key_, &entry, sizeof(entry));
+        const esp_err_t err = nvs.set_blob(key_, entry.get(), sizeof(*entry));
         nvs.close();
         return err == ESP_OK;
     }
@@ -153,22 +161,28 @@ public:
             return false;
         }
 
-        NvramTypedEntry<TPayload> entry {};
-        const esp_err_t err = nvs.get_blob(key_, &entry, sizeof(entry));
+        // On the heap: a full settings payload can be larger than the calling task's stack.
+        const std::unique_ptr<NvramTypedEntry<TPayload>> entry { new (std::nothrow) NvramTypedEntry<TPayload> {} };
+        if (!entry)
+        {
+            nvs.close();
+            return false;
+        }
+        const esp_err_t err = nvs.get_blob(key_, entry.get(), sizeof(*entry));
         nvs.close();
         if (err != ESP_OK)
         {
             return false;
         }
 
-        if (entry.header.magic != magic_ ||
-            entry.header.version != version_ ||
-            entry.header.payloadSize != sizeof(TPayload))
+        if (entry->header.magic != magic_ ||
+            entry->header.version != version_ ||
+            entry->header.payloadSize != sizeof(TPayload))
         {
             return false;
         }
 
-        outPayload = entry.payload;
+        outPayload = entry->payload;
         return true;
     }
 

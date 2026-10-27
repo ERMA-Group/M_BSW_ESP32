@@ -7,6 +7,7 @@
  */
 
 #pragma once
+#include <array>
 #include <cstdint>
 
 namespace bsw {
@@ -34,7 +35,15 @@ public:
     void stopPwm(uint8_t channel);
 
 private:
+    static constexpr uint8_t kPwmChannelCount = 8;    // LEDC channels per speed mode
+    static constexpr uint8_t kPwmTimerNone = 0xFF;    // channel not set up by initPwm()
+    static constexpr uint8_t kPwmTimerCount = 4;      // LEDC timers per speed mode
+    static constexpr uint32_t kPwmDutyUpdateTimeoutUs = 200; // longest wait for a pending duty update (5 periods at 25 kHz)
+
     bool pwm_timer_initialized = false;
+    std::array<uint8_t, kPwmChannelCount> pwm_channel_timer_ {}; // LEDC timer of each channel, from initPwm()
+    std::array<uint32_t, kPwmTimerCount> pwm_timer_freq_ {};      // frequency last set on each timer, 0 = not set
+    void waitPwmDutyUpdateDone(uint8_t channel) const;
     uint16_t getPwmDutyCycleLookup(uint8_t duty_cycle) const;
     uint16_t getPwmBrightnessLookup(uint8_t brightness) const;
     uint16_t getPwmBrightnessLookupInv(uint8_t brightness) const;

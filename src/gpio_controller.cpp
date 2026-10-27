@@ -7,6 +7,8 @@
 #include "driver/gpio.h"
 #include "hal/gpio_types.h"
 #include "driver/ledc.h"
+#include "esp_rom_sys.h"
+#include "soc/ledc_struct.h"
 
 namespace bsw {
 /* ---------------- Constant Definitions ---------------- */
@@ -38,7 +40,10 @@ const uint16_t GpioController::pwm_brightness_lookup_table_inv[kPwmLookupTableSi
 
 
 /* ---------------- C++ class ---------------- */
-GpioController::GpioController() {}
+GpioController::GpioController()
+{
+    pwm_channel_timer_.fill(kPwmTimerNone);
+}
 void GpioController::init() {}
 
 void GpioController::setDirection(uint8_t gpio_id, GpioDirection direction)
@@ -83,6 +88,10 @@ void GpioController::initPwm(uint8_t gpio_id, uint32_t frequency, uint8_t duty_c
     ledc_channel.intr_type = LEDC_INTR_DISABLE;
     ledc_channel.timer_sel = static_cast<ledc_timer_t>(timer);
     ledc_channel.duty = getPwmDutyCycleLookup(duty_cycle);
+    if (channel < kPwmChannelCount)
+    {
+        pwm_channel_timer_[channel] = timer;
+    }
 
     /* Initialize PWM timer if it hasn't been initialized yet */
 	if (pwm_timer_initialized == false)
@@ -95,6 +104,10 @@ void GpioController::initPwm(uint8_t gpio_id, uint32_t frequency, uint8_t duty_c
 		ledc_timer.clk_cfg = LEDC_AUTO_CLK;
 		ESP_ERROR_CHECK( ledc_timer_config(&ledc_timer) );
 		pwm_timer_initialized = true;
+		if (timer < kPwmTimerCount)
+		{
+			pwm_timer_freq_[timer] = frequency;
+		}
 	}
     ledc_channel_config(&ledc_channel);
 }
@@ -115,6 +128,7 @@ GpioState GpioController::getState(uint8_t gpio_id) const
  */
 void GpioController::setPwmDuty(uint8_t channel, uint8_t duty_cycle, bool is_brightness, bool pwm_inverted)
 {
+    waitPwmDutyUpdateDone(channel);
     if (is_brightness)
     {
         if (pwm_inverted)
@@ -140,9 +154,50 @@ void GpioController::setPwmDuty(uint8_t channel, uint8_t duty_cycle, bool is_bri
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, static_cast<ledc_channel_t>(channel));
 }
 
+/**
+ * Wait until the previous duty update of a channel has been applied. The hardware clears duty_start when
+ * it has taken the new duty (one to two PWM periods); a new update started before that is lost, and the
+ * channel keeps the old duty (EN lines stayed off after a latch, some ticks). Bounded, so a stopped timer
+ * cannot hang the caller.
+ * @param channel The LEDC high-speed channel.
+ */
+void GpioController::waitPwmDutyUpdateDone(uint8_t channel) const
+{
+    if (channel >= kPwmChannelCount)
+    {
+        return;
+    }
+    for (uint32_t us = 0; us < kPwmDutyUpdateTimeoutUs; us++)
+    {
+        if (LEDC.channel_group[LEDC_HIGH_SPEED_MODE].channel[channel].conf1.duty_start == 0)
+        {
+            return;
+        }
+        esp_rom_delay_us(1);
+    }
+}
+
 void GpioController::setPwmFreq(uint8_t channel, uint32_t frequency)
 {
-    ledc_set_freq(LEDC_HIGH_SPEED_MODE, static_cast<ledc_timer_t>(channel), frequency);
+    // The frequency belongs to the timer the channel was set up with, not to the timer with the channel's number.
+    // Channels that were never set up are skipped: ledc_set_freq() would log an error, and a log inside a
+    // critical section aborts.
+    if (channel >= kPwmChannelCount || pwm_channel_timer_[channel] == kPwmTimerNone)
+    {
+        return;
+    }
+    // Channels share a timer: reprogram it only when the frequency changes. The LED driver passes the
+    // frequency with every duty update; rewriting the shared timer that often is useless and suspected to
+    // lose the pending duty update (duty register read 1024 instead of 1022 on the board).
+    const uint8_t timer = pwm_channel_timer_[channel];
+    if (timer >= kPwmTimerCount || pwm_timer_freq_[timer] == frequency)
+    {
+        return;
+    }
+    if (ledc_set_freq(LEDC_HIGH_SPEED_MODE, static_cast<ledc_timer_t>(timer), frequency) == ESP_OK)
+    {
+        pwm_timer_freq_[timer] = frequency;
+    }
 }
 
 void GpioController::stopPwm(uint8_t channel)

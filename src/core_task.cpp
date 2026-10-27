@@ -10,6 +10,11 @@ namespace bsw {
 CoreTask::CoreTask() : task_handle(nullptr) {}
 bool CoreTask::create(void (*task_function)(void*), const char* name, uint16_t stack_size, void* parameters, uint8_t priority, uint8_t core) noexcept
 {
+    if (core >= portNUM_PROCESSORS)
+    {
+        return false;
+    }
+
     const BaseType_t result = xTaskCreatePinnedToCore(
         task_function,
         name,

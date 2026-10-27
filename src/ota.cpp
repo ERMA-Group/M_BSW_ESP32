@@ -30,7 +30,8 @@ esp_err_t ota_http_event_handler(esp_http_client_event_t* evt)
             break;
 
         case HTTP_EVENT_ON_DATA:
-            if (evt->data_len > 0) {
+            // Only a 200 body is firmware; an error page (404 ...) is reported by its status after perform().
+            if (evt->data_len > 0 && esp_http_client_get_status_code(evt->client) == 200) {
                 esp_err_t err = esp_ota_write(ctx->handle, evt->data, evt->data_len);
                 if (err != ESP_OK) {
                     ESP_LOGE("OTA", "esp_ota_write failed: %s", esp_err_to_name(err));
@@ -79,10 +80,10 @@ esp_err_t Ota::start_update(const char* url) {
     }
 
     // 2. ERASE FLASH *BEFORE* OPENING THE HTTP CONNECTION
-    // This uses 1027472 bytes (from your curl check) or full partition size.
-    // By erasing BEFORE opening HTTP, OpenResty's 10s timer won't run during erase!
+    // The whole partition, so any image that fits is written to erased flash (a fixed size breaks as soon as
+    // the image grows past it). By erasing BEFORE opening HTTP, OpenResty's 10s timer won't run during erase!
     esp_ota_handle_t update_handle = 0;
-    esp_err_t err = esp_ota_begin(update_partition, 1027472, &update_handle);
+    esp_err_t err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
     if (err != ESP_OK) {
         ESP_LOGE("OTA", "esp_ota_begin failed: %s", esp_err_to_name(err));
         g_ota_in_progress = false;
@@ -116,11 +117,11 @@ esp_err_t Ota::start_update(const char* url) {
         return ESP_FAIL;
     }
 
-    // Matching headers specifically for OpenResty
+    // Matching headers specifically for OpenResty. No Host override: the client takes it from the URL, and
+    // a fixed Host sends every URL to that one virtual host (404 for files on any other host).
     esp_http_client_set_header(client, "User-Agent", "Mozilla/5.0 (ESP32) OTA Client");
     esp_http_client_set_header(client, "Accept", "*/*");
     esp_http_client_set_header(client, "Connection", "keep-alive");
-    esp_http_client_set_header(client, "Host", "fwarchive.erma.sk");
 
     // 3. START HTTP TRANSFER
     err = esp_http_client_perform(client);

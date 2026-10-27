@@ -55,14 +55,27 @@ public:
         bool ack_check_disable;   // Disable ACK check. If this is set false, that means ack check is enabled, the transaction will be stopped and API returns error when nack is detected
     };
 
+    static constexpr int32_t kWriteTimeoutMs = 50; ///< Default timeout for write(); keeps a missing device from blocking forever
+
     I2c() noexcept = default;
     explicit I2c(const Config& config) noexcept;
     ~I2c() noexcept = default;
 
     bool init() noexcept;
+    bool isInitialized() const noexcept { return initialized_; }
 
     int32_t write_byte(const uint8_t reg_addr, const uint8_t data) noexcept;
     int32_t read_bytes(const uint8_t reg_addr, uint8_t* buffer, const size_t length) noexcept;
+
+    /**
+     * @brief Write a raw byte sequence to the device as one I2C transaction (START, address, data, STOP).
+     * @param data Bytes to send.
+     * @param length Number of bytes to send.
+     * @param timeout_ms Transfer timeout in milliseconds; -1 waits forever.
+     * @return ESP_OK on success, ESP_ERR_INVALID_STATE before init(), ESP_ERR_INVALID_ARG for an empty buffer,
+     *         otherwise the esp_err_t reported by the driver (for example on NACK or timeout).
+     */
+    int32_t write(const uint8_t* data, const size_t length, const int32_t timeout_ms = kWriteTimeoutMs) noexcept;
 
 private:
     bool initialized_ = false;

@@ -53,6 +53,10 @@ public:
         uint8_t rx_pin;
         uint32_t baud_rate;
         uint16_t rx_buf_size = 1024;
+        /** Bytes in the 128-byte hardware RX FIFO that raise the receive interrupt; 0 keeps the
+            ESP-IDF default (120). A lower value leaves more FIFO room for interrupt latency at
+            high baud rates (8 bytes are 40 us at 2 Mbit/s). Range: 0, [1, 127]. */
+        uint8_t rx_full_threshold = 0;
     };
 
     static constexpr uint32_t kRxWaitTimeoutMs = 0;  ///< Timeout for receiving data in milliseconds

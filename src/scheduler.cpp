@@ -16,6 +16,7 @@ namespace bsw {
 Scheduler::Scheduler(const uint32_t in_period_us, const uint32_t watchdog_timeout_ms)
     : current_tick_(0),
       period_us_(in_period_us),
+      timer_handle_(nullptr),
       scheduler_tasks_()
 {
     watchdog_.setTimeout(watchdog_timeout_ms);
@@ -118,7 +119,10 @@ bool Scheduler::start()
 
     char task_name[16];
     std::snprintf(task_name, sizeof(task_name), "SchedT_%02X", static_cast<unsigned>(reinterpret_cast<uintptr_t>(this) & 0xFFU));
-    if (!start_worker_task_(task_name, 5, tskNO_AFFINITY))
+
+    // xTaskCreatePinnedToCore() does not accept tskNO_AFFINITY; pin to a valid core instead.
+    constexpr uint8_t kDefaultCore = 0;
+    if (!start_worker_task_(task_name, 5, kDefaultCore))
     {
         is_started_ = false;
         return false;
@@ -169,7 +173,7 @@ void Scheduler::tick_callback_wrapper_(void* arg)
  */
 bool Scheduler::start_on_core(uint8_t core_id, uint8_t uniqueId, uint8_t priority)
 {
-    if (is_started_)
+    if (is_started_ || core_id >= portNUM_PROCESSORS)
     {
         return false;
     }

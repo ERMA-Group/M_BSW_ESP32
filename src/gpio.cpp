@@ -52,7 +52,11 @@ void Gpio::init() noexcept
 {
     _gpio_controller.setDirection(_gpio_id, _direction);
     _gpio_controller.setPullMode(_gpio_id, _pull_mode);
-    _gpio_controller.setGpioState(_gpio_id, _state);
+    if (_direction == GpioDirection::kOutput)
+    {
+        // Driving a level only makes sense for outputs; on input-only pads (GPIO34-39) it fails with an error log.
+        _gpio_controller.setGpioState(_gpio_id, _state);
+    }
 }
 
 void Gpio::initPwm(const uint32_t frequency, const uint8_t duty_cycle, const uint8_t channel, const uint8_t timer) noexcept
