@@ -365,6 +365,9 @@ bool Wifi::start_sta()
         return false;
     }
 
+    // Boost Wi-Fi TX power
+    esp_wifi_set_max_tx_power(84); // 84 * 0.25 dBm = 21 dBm (max for ESP32)
+
     return true;
 }
 
